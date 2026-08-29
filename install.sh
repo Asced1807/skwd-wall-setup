@@ -151,20 +151,59 @@ systemctl --user restart skwd-daemon.service
 c_ok "Daemon reiniciado."
 
 # ------------------------------------------------------------- 8. Keybind
-cat <<'MSG'
+# La sintaxis NO depende de la version de Hyprland, sino del formato de config
+# que cargue: si existe hyprland.lua manda Lua, si no, hyprlang (.conf).
+HYPR_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/hypr"
+CAE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/caelestia"
 
-------------------------------------------------------------------
-  ULTIMO PASO MANUAL: el atajo de teclado
-------------------------------------------------------------------
-  Anade UNA de estas lineas a tu configuracion de Hyprland:
+if [ -f "$HYPR_DIR/hyprland.lua" ]; then
+  FORMATO="lua"
+elif [ -f "$HYPR_DIR/hyprland.conf" ]; then
+  FORMATO="conf"
+else
+  FORMATO="desconocido"
+fi
 
-  Hyprland en Lua (>= 0.57):
-    hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd("skwd wall toggle"))
+echo
+echo "------------------------------------------------------------------"
+echo "  ULTIMO PASO MANUAL: el atajo de teclado"
+echo "------------------------------------------------------------------"
 
-  Hyprland clasico (.conf):
-    bind = SUPER SHIFT, T, exec, skwd wall toggle
+case "$FORMATO" in
+  lua)
+    if [ -f "$CAE_DIR/hypr-user.lua" ]; then
+      DESTINO="$CAE_DIR/hypr-user.lua"
+    else
+      DESTINO="$HYPR_DIR/hyprland.lua"
+    fi
+    echo "  Tu Hyprland carga configuracion en Lua ($HYPR_DIR/hyprland.lua)."
+    echo "  Pega esta linea en:  $DESTINO"
+    echo
+    echo '    hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd("skwd wall toggle"))'
+    ;;
+  conf)
+    if [ -f "$CAE_DIR/hypr-user.conf" ]; then
+      DESTINO="$CAE_DIR/hypr-user.conf"
+    else
+      DESTINO="$HYPR_DIR/hyprland.conf"
+    fi
+    echo "  Tu Hyprland carga configuracion clasica (.conf, hyprlang)."
+    echo "  Pega esta linea en:  $DESTINO"
+    echo
+    echo "    bind = SUPER SHIFT, T, exec, skwd wall toggle"
+    echo
+    echo "  OJO: la sintaxis 'hl.bind(...)' es de Lua y aqui NO hace nada."
+    ;;
+  *)
+    echo "  No encuentro tu configuracion de Hyprland en $HYPR_DIR."
+    echo "  Usa la linea que corresponda a tu formato:"
+    echo
+    echo "    .conf (hyprlang):  bind = SUPER SHIFT, T, exec, skwd wall toggle"
+    echo '    .lua            :  hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd("skwd wall toggle"))'
+    ;;
+esac
 
-  Recarga Hyprland (hyprctl reload) y pulsa Super + Shift + T.
-  Para probarlo ya mismo sin tocar nada:  skwd wall toggle
-------------------------------------------------------------------
-MSG
+echo
+echo "  Recarga con 'hyprctl reload' y pulsa Super + Shift + T."
+echo "  Para probar el selector sin tocar nada:  skwd wall toggle"
+echo "------------------------------------------------------------------"

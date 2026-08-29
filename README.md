@@ -81,24 +81,39 @@ SKWD_WALLPAPER_DIR="$HOME/Fondos" ./install.sh
 
 ### El último paso es manual: el atajo
 
-No toco tu configuración de Hyprland. Añade **una** de estas líneas:
+No toco tu configuración de Hyprland. El instalador detecta tu formato y te
+imprime la línea correcta, pero por si lo haces a mano:
 
-**Hyprland en Lua** (0.57 en adelante):
+**La sintaxis no depende de la versión de Hyprland, sino del formato de
+configuración que cargue.** Hyprland admite dos: el clásico `hyprlang`
+(`.conf`) y Lua. Si existe `~/.config/hypr/hyprland.lua`, manda Lua; si no,
+manda el `.conf`. Compruébalo:
+
+```bash
+ls ~/.config/hypr/hyprland.lua 2>/dev/null && echo "-> usa Lua" || echo "-> usa .conf"
+```
+
+**Si usa `.conf`** (lo más común hoy):
+
+```conf
+bind = SUPER SHIFT, T, exec, skwd wall toggle
+```
+
+Va en `~/.config/hypr/hyprland.conf`, o en `~/.config/caelestia/hypr-user.conf`
+si usas Caelestia.
+
+**Si usa Lua:**
 
 ```lua
 hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd("skwd wall toggle"))
 ```
 
-`hl` es la global que inyecta Hyprland en su config Lua, así que la línea vale
-tal cual en cualquier archivo `.lua` que Hyprland cargue. En un setup Caelestia
-el sitio natural es `~/.config/caelestia/hypr-user.lua`; si no usas Caelestia,
-ponla en tu `hyprland.lua`.
+Va en `~/.config/hypr/hyprland.lua`, o en `~/.config/caelestia/hypr-user.lua`
+si usas Caelestia. `hl` es la global que inyecta Hyprland en la config Lua, así
+que la línea vale tal cual en cualquier archivo `.lua` que Hyprland cargue.
 
-**Hyprland clásico** (`.conf`, 0.56 o anterior):
-
-```conf
-bind = SUPER SHIFT, T, exec, skwd wall toggle
-```
+> Meter la línea Lua en un `.conf` (o al revés) **no da error visible**: el
+> atajo simplemente no hace nada. Es el fallo más habitual al copiar esto.
 
 Recarga con `hyprctl reload` y pulsa `Super + Shift + T`.
 
@@ -194,6 +209,19 @@ Compruébalo:
 command -v quickshell || sudo pacman -S quickshell
 pgrep -af 'quickshell -p /usr/share/skwd'
 ```
+
+**Pulso Super+Shift+T y no pasa nada.**
+Separa los dos problemas posibles. Primero, en una terminal:
+
+```bash
+skwd wall toggle
+```
+
+- **Si el panel se abre**, el selector está bien y el fallo es el atajo: casi
+  siempre la línea está en el formato equivocado (Lua dentro de un `.conf`, o
+  al revés). Vuelve a *El último paso es manual*.
+- **Si no se abre**, el problema es skwd: mira si falta `quickshell` y revisa
+  el daemon (abajo).
 
 **El daemon no arranca al iniciar sesión.**
 `skwd-daemon.service` cuelga de `graphical-session.target`. Si lanzas Hyprland

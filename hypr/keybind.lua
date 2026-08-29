@@ -1,7 +1,8 @@
 -- Selector de wallpapers skwd-wall
--- Hyprland con configuracion en Lua (>= 0.57)
+-- Para Hyprland con configuracion en LUA (existe ~/.config/hypr/hyprland.lua).
+-- Si tu Hyprland usa el .conf clasico, esta linea NO hace nada: usa keybind.conf.
 --
--- Pega esta linea en tu archivo de binds de usuario.
--- En un setup Caelestia: ~/.config/caelestia/hypr-user.lua
+-- Destino: ~/.config/hypr/hyprland.lua
+--          o ~/.config/caelestia/hypr-user.lua en un setup Caelestia.
 
 hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd("skwd wall toggle"))
