@@ -117,7 +117,7 @@ sed "s|__WALLPAPER_DIR__|$WALLPAPER_DIR|" "$REPO_DIR/config/config.json" > "$CON
 if ! command -v caelestia >/dev/null 2>&1; then
   c_warn "No detecto Caelestia: quito el post-procesado (postProcessing vacio)."
   c_warn "Sin el, skwd solo elige el fondo y no lo aplica nadie."
-  c_warn "Lee la seccion 'Si no usas Caelestia' del README."
+  c_warn "Lee la seccion 'Si no usas Caelestia' en docs/manual.md."
   python3 - "$CONFIG_FILE" <<'PY'
 import json, sys
 path = sys.argv[1]
@@ -187,7 +187,7 @@ if [ -n "${SKWD_NO_BIND:-}" ]; then
 
 elif [ "$FORMATO" = "desconocido" ]; then
   c_err "No encuentro hyprland.lua ni hyprland.conf en $HYPR_DIR."
-  c_err "Anade el atajo a mano; mira la seccion del atajo en el README."
+  c_err "Anade el atajo a mano; mira docs/manual.md."
 
 else
   c_ok "Formato detectado: $FORMATO$([ "$CAELESTIA" = si ] && echo " + Caelestia")"
