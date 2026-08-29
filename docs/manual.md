@@ -173,13 +173,33 @@ skwd wall toggle
   el daemon (abajo).
 
 **El daemon no arranca al iniciar sesión.**
-`skwd-daemon.service` cuelga de `graphical-session.target`. Si lanzas Hyprland
-a pelo (sin `uwsm`), ese target puede no activarse nunca. Comprueba con
-`systemctl --user is-active graphical-session.target`; si sale `inactive`,
-añade a tu configuración de Hyprland:
+`skwd-daemon.service` cuelga de `graphical-session.target`. Ese target no lo
+levanta Hyprland por sí mismo, sino el gestor de sesión: con `uwsm` la cadena es
+`wayland-wm@hyprland.desktop.service` → `wayland-session@hyprland.desktop.target`
+→ `graphical-session.target`. Si lanzas Hyprland a pelo, el target nunca se
+activa y `systemctl --user enable` no sirve de nada.
+
+El unit del paquete está bien (`PartOf`, `After` y `WantedBy` correctos): no hay
+que editarlo, y editarlo sería peor porque se pierde en cada actualización. El
+instalador comprueba el target y, si no está activo, añade el arranque a tu
+configuración de Hyprland:
 
 ```conf
 exec-once = systemctl --user start skwd-daemon.service
+```
+
+En Lua, su equivalente:
+
+```lua
+hl.on("hyprland.start", function()
+    hl.exec_cmd("systemctl --user start skwd-daemon.service")
+end)
+```
+
+Comprueba en qué situación estás con:
+
+```bash
+systemctl --user is-active graphical-session.target
 ```
 
 **La barra superior del panel (filtros + engranaje) no se ve.**

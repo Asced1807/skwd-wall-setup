@@ -87,10 +87,14 @@ fi
 
 # El servicio cuelga de graphical-session.target. Si tu sesion no lo levanta
 # (Hyprland lanzado a pelo, sin uwsm), 'enable' no bastara en el proximo login.
+# El unit del paquete cuelga de graphical-session.target, que levanta uwsm.
+# Si tu sesion no lo activa, 'enable' no serviria de nada en el proximo login:
+# en ese caso el arranque se anade a la propia config de Hyprland.
+NECESITA_AUTOSTART="no"
 if ! systemctl --user is-active --quiet graphical-session.target; then
-  c_warn "graphical-session.target NO esta activo en tu sesion."
-  c_warn "El daemon no arrancara solo al iniciar sesion. Anade a tu Hyprland:"
-  c_warn "    exec-once = systemctl --user start skwd-daemon.service"
+  NECESITA_AUTOSTART="si"
+  c_warn "Tu sesion no levanta graphical-session.target (Hyprland sin uwsm)."
+  c_warn "Anadire el arranque del daemon a tu configuracion de Hyprland."
 fi
 
 # El daemon crea ~/.config/skwd-wall con sus plantillas la primera vez.
@@ -214,6 +218,9 @@ else
   if [ "$SEGUIR" = "si" ]; then
     ANTES="$(contar_bind)"
     python3 "$BIND_PY" "$HYPR_DIR" "$CAE_DIR" "$BIND_KEY" apply
+    if [ "$NECESITA_AUTOSTART" = "si" ]; then
+      python3 "$BIND_PY" "$HYPR_DIR" "$CAE_DIR" "$BIND_KEY" autostart
+    fi
 
     if command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
       hyprctl reload >/dev/null 2>&1 || true

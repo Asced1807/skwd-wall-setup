@@ -52,6 +52,11 @@ Si está vacía, descarga desde la pestaña **Wallhaven** del panel.
 **El panel no abre.** Casi siempre falta `quickshell`, que no es dependencia
 declarada del paquete: `sudo pacman -S quickshell`.
 
+**Tras reiniciar, el daemon aparece muerto.** El servicio del paquete cuelga de
+`graphical-session.target`, que levanta uwsm. Si lanzas Hyprland sin uwsm ese
+target no se activa nunca: `./install.sh` lo detecta y añade el arranque a tu
+configuración de Hyprland.
+
 **Pulso el atajo y no pasa nada.** Prueba `skwd wall toggle` en una terminal. Si
 el panel abre, el problema es el atajo: vuelve a ejecutar `./install.sh`.
 

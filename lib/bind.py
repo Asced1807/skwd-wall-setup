@@ -79,6 +79,27 @@ def bloque_para(formato, caelestia, tecla):
 _RESPALDADOS = {}
 
 
+def bloque_autostart(formato):
+    """Arranque del daemon para sesiones que no levantan graphical-session.target."""
+    if formato == "lua":
+        return [
+            "",
+            "-- Arranque del daemon de skwd (anadido por skwd-wall-setup)",
+            '-- Tu sesion no levanta graphical-session.target, asi que el',
+            '-- "systemctl --user enable" por si solo no bastaria.',
+            'hl.on("hyprland.start", function()',
+            '    hl.exec_cmd("systemctl --user start skwd-daemon.service")',
+            "end)",
+        ]
+    return [
+        "",
+        "# Arranque del daemon de skwd (anadido por skwd-wall-setup)",
+        "# Tu sesion no levanta graphical-session.target, asi que el",
+        '# "systemctl --user enable" por si solo no bastaria.',
+        "exec-once = systemctl --user start skwd-daemon.service",
+    ]
+
+
 def respaldar(path):
     """Una sola copia por archivo y ejecucion: la segunda guardaria ya lo editado."""
     if path in _RESPALDADOS:
@@ -181,6 +202,19 @@ def main():
     if formato == "desconocido":
         print("[XX] No encuentro hyprland.lua ni hyprland.conf en %s" % hypr_dir)
         return 1
+
+    if accion == "autostart":
+        if os.path.isfile(destino):
+            with open(destino, errors="replace") as fh:
+                if "skwd-daemon.service" in fh.read():
+                    print("[ok] El arranque del daemon ya estaba en %s" % destino)
+                    return 0
+            copia = respaldar(destino)
+            if copia:
+                print("[ok] Copia previa: %s" % copia)
+        insertar(destino, bloque_autostart(formato), formato)
+        print("[ok] Arranque del daemon anadido a %s" % destino)
+        return 0
 
     informe = []
     ya_esta = False
