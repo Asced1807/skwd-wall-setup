@@ -42,7 +42,9 @@ c_ok "Helper AUR: $AUR_HELPER"
 # Sin quickshell el daemon arranca pero el selector no aparece nunca.
 if ! command -v quickshell >/dev/null 2>&1; then
   c_ok "Instalando quickshell (lo necesita el panel; no es dependencia declarada)..."
-  sudo pacman -S --needed --noconfirm quickshell
+  sudo pacman -S --needed --noconfirm quickshell \
+    || "$AUR_HELPER" -S --needed quickshell \
+    || { c_err "No he podido instalar quickshell; sin el, el panel no abre."; exit 1; }
 else
   c_ok "quickshell presente: $(command -v quickshell)"
 fi
@@ -80,13 +82,16 @@ fi
 c_ok "Habilitando skwd-daemon.service..."
 systemctl --user enable skwd-daemon.service
 
+DAEMON_VIVO="si"
 if ! systemctl --user start skwd-daemon.service; then
-  c_err "El servicio no arranco. Mira: journalctl --user -u skwd-daemon.service -n 50"
-  exit 1
+  # Tipico al instalar desde un TTY: sin sesion Wayland el daemon no arranca.
+  # No es motivo para abortar: dejamos todo configurado para el proximo login.
+  DAEMON_VIVO="no"
+  c_warn "El daemon no ha arrancado ahora (normal si no estas en tu sesion grafica)."
+  c_warn "Sigo configurando; arrancara al entrar. Si luego falla, mira:"
+  c_warn "    journalctl --user -u skwd-daemon.service -n 50"
 fi
 
-# El servicio cuelga de graphical-session.target. Si tu sesion no lo levanta
-# (Hyprland lanzado a pelo, sin uwsm), 'enable' no bastara en el proximo login.
 # El unit del paquete cuelga de graphical-session.target, que levanta uwsm.
 # Si tu sesion no lo activa, 'enable' no serviria de nada en el proximo login:
 # en ese caso el arranque se anade a la propia config de Hyprland.
@@ -104,8 +109,13 @@ for _ in $(seq 1 20); do
 done
 
 if [ ! -d "$CONFIG_DIR" ]; then
-  c_err "skwd no creo $CONFIG_DIR. Revisa: systemctl --user status skwd-daemon.service"
-  exit 1
+  if [ "$DAEMON_VIVO" = "no" ]; then
+    mkdir -p "$CONFIG_DIR"
+    c_warn "Creo $CONFIG_DIR yo: skwd lo completara en su primer arranque."
+  else
+    c_err "skwd no creo $CONFIG_DIR. Revisa: systemctl --user status skwd-daemon.service"
+    exit 1
+  fi
 fi
 
 # -------------------------------------------------------- 5. Aplicar config
@@ -151,8 +161,10 @@ else
 fi
 
 # ------------------------------------------------------------ 7. Recargar
-systemctl --user restart skwd-daemon.service
-c_ok "Daemon reiniciado."
+if [ "$DAEMON_VIVO" = "si" ]; then
+  systemctl --user restart skwd-daemon.service
+  c_ok "Daemon reiniciado."
+fi
 
 # ------------------------------------------------------------- 8. Keybind
 # El script edita tu configuracion de Hyprland, pero con red de seguridad:
@@ -161,7 +173,8 @@ c_ok "Daemon reiniciado."
 #   - hace copia de seguridad de todo lo que toca
 #   - aqui abajo se recarga y se comprueba que el bind quedo registrado
 #
-# Variables: SKWD_BIND_KEY=W  cambia la letra   |   SKWD_NO_BIND=1  no toca nada
+# Variables: SKWD_BIND_KEY=W cambia la letra | SKWD_NO_BIND=1 no toca nada
+#            SKWD_YES=1 no pregunta nada
 BIND_KEY="${SKWD_BIND_KEY:-T}"
 HYPR_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/hypr"
 CAE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/caelestia"
@@ -206,7 +219,7 @@ else
     SEGUIR="no"
   fi
 
-  if [ "$SEGUIR" = "si" ] && [ -t 0 ]; then
+  if [ "$SEGUIR" = "si" ] && [ -t 0 ] && [ -z "${SKWD_YES:-}" ]; then
     printf '\n%s\n\n' "$BLOQUE"
     printf '  Lo anado a %s? [S/n] ' "$(basename "$DESTINO")"
     read -r RESP || RESP=""

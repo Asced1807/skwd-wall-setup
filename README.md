@@ -20,7 +20,8 @@ cd skwd-wall-setup
 ./install.sh
 ```
 
-Ya está. El script hace el resto:
+Te pedirá la contraseña de `sudo` para los paquetes y una confirmación antes de
+tocar tu configuración de Hyprland. El resto lo hace solo:
 
 - Instala lo que falte: `quickshell`, `skwd-daemon-bin` (AUR) e `imagemagick`.
 - Crea tu carpeta de wallpapers y aplica la configuración.
@@ -46,6 +47,7 @@ Si está vacía, descarga desde la pestaña **Wallhaven** del panel.
 | Otra carpeta | `SKWD_WALLPAPER_DIR=~/Fondos ./install.sh` |
 | Otra tecla | `SKWD_BIND_KEY=W ./install.sh` |
 | Que no toque mi config de Hyprland | `SKWD_NO_BIND=1 ./install.sh` |
+| Que no pregunte nada | `SKWD_YES=1 ./install.sh` |
 
 ## Si algo falla
 
