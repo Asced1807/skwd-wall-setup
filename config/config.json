@@ -1,0 +1,84 @@
+{
+  "compositor": "hyprland",
+  "monitor": "",
+  "general": {
+    "locale": "",
+    "closeOnSelection": false,
+    "reopenAtLastSelection": false
+  },
+  "paths": {
+    "wallpaper": "__WALLPAPER_DIR__",
+    "videoWallpaper": "",
+    "cache": "",
+    "templates": "",
+    "scripts": "",
+    "steam": "",
+    "steamWorkshop": "",
+    "steamWeAssets": ""
+  },
+  "features": {
+    "music": false,
+    "matugen": false,
+    "ollama": false,
+    "steam": false,
+    "wallhaven": true
+  },
+  "colorSource": "magick",
+  "ollama": {
+    "url": "http://localhost:11434",
+    "model": "gemma3:4b",
+    "consolidateEnabled": true
+  },
+  "steam": {
+    "apiKey": "",
+    "username": ""
+  },
+  "wallhaven": {
+    "apiKey": ""
+  },
+  "matugen": {
+    "schemeType": "scheme-fidelity",
+    "mode": "dark"
+  },
+  "paper": {
+    "engine": "awww"
+  },
+  "integrations": [
+    {
+      "_comment": "Solo la UI de skwd (colors.json). Las integraciones de sistema (kitty/qt/etc) se quitan a proposito: aqui el theming lo manda wallust/Caelestia y skwd no toca nada del sistema.",
+      "name": "skwd-wall",
+      "template": "quickshell-colors.json",
+      "output": "colors.json"
+    }
+  ],
+  "components": {
+    "wallpaperSelector": {
+      "displayMode": "hex",
+      "sliceSpacing": -30,
+      "hexScrollStep": 1,
+      "customPresets": {}
+    }
+  },
+  "wallpaperMute": true,
+  "pickOnlyMode": true,
+  "externalWallpaperCommand": "",
+  "postProcessOnRestore": true,
+  "postProcessing": [
+    {
+      "command": "caelestia wallpaper -n -f \"%path%\"",
+      "type": "all"
+    }
+  ],
+  "performance": {
+    "imageOptimizePreset": "balanced",
+    "imageOptimizeResolution": "2k",
+    "videoConvertPreset": "balanced",
+    "videoConvertResolution": "2k",
+    "autoOptimizeImages": false,
+    "autoConvertVideos": false,
+    "imageTrashDays": 7,
+    "videoTrashDays": 7,
+    "autoDeleteImageTrash": false,
+    "autoDeleteVideoTrash": false
+  }
+}

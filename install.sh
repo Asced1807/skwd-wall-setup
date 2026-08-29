@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# Instalador del selector de wallpapers skwd-wall (perfil "solo selector").
+# Idempotente: se puede volver a ejecutar sin romper nada.
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/skwd-wall"
+CONFIG_FILE="$CONFIG_DIR/config.json"
+
+c_ok()   { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
+c_warn() { printf '\033[1;33m==>\033[0m %s\n' "$*"; }
+c_err()  { printf '\033[1;31m==>\033[0m %s\n' "$*" >&2; }
+
+# ---------------------------------------------------------------- 1. Requisitos
+if ! command -v pacman >/dev/null 2>&1; then
+  c_err "Esto solo esta pensado para Arch Linux y derivadas (CachyOS, EndeavourOS...)."
+  c_err "En otra distro tendras que compilar skwd-daemon a mano:"
+  c_err "  https://github.com/liixini/skwd-daemon"
+  exit 1
+fi
+
+AUR_HELPER=""
+for helper in yay paru; do
+  if command -v "$helper" >/dev/null 2>&1; then AUR_HELPER="$helper"; break; fi
+done
+
+if [ -z "$AUR_HELPER" ]; then
+  c_err "No encuentro yay ni paru. Instala uno de los dos y vuelve a ejecutar."
+  exit 1
+fi
+c_ok "Helper AUR: $AUR_HELPER"
+
+# ------------------------------------------------------------- 2. Dependencias
+if ! command -v skwd >/dev/null 2>&1; then
+  c_ok "Instalando skwd-daemon-bin desde el AUR..."
+  "$AUR_HELPER" -S --needed skwd-daemon-bin
+else
+  c_ok "skwd ya esta instalado: $(command -v skwd)"
+fi
+
+if ! command -v magick >/dev/null 2>&1; then
+  c_ok "Instalando imagemagick (necesario para colorSource=magick)..."
+  sudo pacman -S --needed --noconfirm imagemagick
+else
+  c_ok "imagemagick presente."
+fi
+
+# --------------------------------------------------- 3. Carpeta de wallpapers
+if command -v xdg-user-dir >/dev/null 2>&1; then
+  PICTURES="$(xdg-user-dir PICTURES)"
+else
+  PICTURES="$HOME/Pictures"
+fi
+WALLPAPER_DIR="${SKWD_WALLPAPER_DIR:-$PICTURES/wallpapers}"
+mkdir -p "$WALLPAPER_DIR"
+c_ok "Carpeta de wallpapers: $WALLPAPER_DIR"
+
+if [ -z "$(find "$WALLPAPER_DIR" -maxdepth 1 -type f 2>/dev/null | head -1)" ]; then
+  c_warn "La carpeta esta vacia. Mete imagenes ahi o descargalas desde"
+  c_warn "la pestana Wallhaven del propio selector."
+fi
+
+# ------------------------------------ 4. Primer arranque (bootstrap de skwd)
+c_ok "Habilitando skwd-daemon.service..."
+systemctl --user enable --now skwd-daemon.service
+
+# El daemon crea ~/.config/skwd-wall con sus plantillas la primera vez.
+for _ in $(seq 1 20); do
+  [ -d "$CONFIG_DIR" ] && break
+  sleep 0.5
+done
+
+if [ ! -d "$CONFIG_DIR" ]; then
+  c_err "skwd no creo $CONFIG_DIR. Revisa: systemctl --user status skwd-daemon.service"
+  exit 1
+fi
+
+# -------------------------------------------------------- 5. Aplicar config
+if [ -f "$CONFIG_FILE" ]; then
+  BACKUP="$CONFIG_FILE.bak-$(date +%Y%m%d-%H%M%S)"
+  cp "$CONFIG_FILE" "$BACKUP"
+  c_ok "Backup de tu config anterior: $BACKUP"
+fi
+
+sed "s|__WALLPAPER_DIR__|$WALLPAPER_DIR|" "$REPO_DIR/config/config.json" > "$CONFIG_FILE"
+
+# El post-procesado solo tiene sentido si usas Caelestia.
+if ! command -v caelestia >/dev/null 2>&1; then
+  c_warn "No detecto Caelestia: quito el post-procesado (postProcessing vacio)."
+  c_warn "Sin el, skwd solo elige el fondo y no dispara ningun theming."
+  python3 - "$CONFIG_FILE" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path) as fh:
+    cfg = json.load(fh)
+cfg["postProcessing"] = []
+with open(path, "w") as fh:
+    json.dump(cfg, fh, indent=2)
+    fh.write("\n")
+PY
+else
+  c_ok "Caelestia detectado: el fondo se aplicara con 'caelestia wallpaper'."
+fi
+
+python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$CONFIG_FILE"
+c_ok "Config escrita en $CONFIG_FILE"
+
+# ------------------------------------------------------------ 6. Recargar
+systemctl --user restart skwd-daemon.service
+c_ok "Daemon reiniciado."
+
+# ------------------------------------------------------------- 7. Keybind
+cat <<'MSG'
+
+------------------------------------------------------------------
+  ULTIMO PASO MANUAL: el atajo de teclado
+------------------------------------------------------------------
+  Anade UNA de estas lineas a tu configuracion de Hyprland:
+
+  Hyprland en Lua (>= 0.57):
+    hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd("skwd wall toggle"))
+
+  Hyprland clasico (.conf):
+    bind = SUPER SHIFT, T, exec, skwd wall toggle
+
+  Recarga Hyprland y pulsa Super + Shift + T.
+  Para probarlo ya mismo sin tocar nada:  skwd wall toggle
+------------------------------------------------------------------
+MSG
