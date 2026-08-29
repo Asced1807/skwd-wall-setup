@@ -151,75 +151,90 @@ systemctl --user restart skwd-daemon.service
 c_ok "Daemon reiniciado."
 
 # ------------------------------------------------------------- 8. Keybind
-# Dos cosas deciden la linea correcta:
-#   1) El FORMATO de config: si existe hyprland.lua manda Lua, si no, hyprlang.
-#   2) Si usas CAELESTIA con .conf, sus 160 binds viven en 'submap = global' y
-#      la sesion se queda ahi -> un bind suelto cae en el submap por defecto
-#      (inactivo) y NO dispara nunca. Hay que envolverlo.
+# El script edita tu configuracion de Hyprland, pero con red de seguridad:
+#   - lib/bind.py detecta el formato (Lua o hyprlang) y si manda Caelestia
+#   - limpia lineas de skwd pegadas a mano en el formato equivocado
+#   - hace copia de seguridad de todo lo que toca
+#   - aqui abajo se recarga y se comprueba que el bind quedo registrado
+#
+# Variables: SKWD_BIND_KEY=W  cambia la letra   |   SKWD_NO_BIND=1  no toca nada
+BIND_KEY="${SKWD_BIND_KEY:-T}"
 HYPR_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/hypr"
 CAE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/caelestia"
-
-if [ -f "$HYPR_DIR/hyprland.lua" ]; then
-  FORMATO="lua"
-elif [ -f "$HYPR_DIR/hyprland.conf" ]; then
-  FORMATO="conf"
-else
-  FORMATO="desconocido"
-fi
-
-if [ -d "$CAE_DIR" ] || command -v caelestia >/dev/null 2>&1; then
-  CAELESTIA="si"
-else
-  CAELESTIA="no"
-fi
+BIND_PY="$REPO_DIR/lib/bind.py"
 
 echo
 echo "------------------------------------------------------------------"
-echo "  ULTIMO PASO MANUAL: el atajo de teclado"
+echo "  ATAJO DE TECLADO"
 echo "------------------------------------------------------------------"
 
-case "$FORMATO:$CAELESTIA" in
-  lua:si)
-    echo "  Config en Lua + Caelestia. Pega esto en:"
-    echo "    $CAE_DIR/hypr-user.lua"
-    echo
-    echo '    hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd("skwd wall toggle"))'
-    ;;
-  lua:no)
-    echo "  Config en Lua. Pega esto en:"
-    echo "    $HYPR_DIR/hyprland.lua"
-    echo
-    echo '    hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd("skwd wall toggle"))'
-    ;;
-  conf:si)
-    echo "  Config clasica (.conf) + Caelestia. Pega esto en:"
-    echo "    $CAE_DIR/hypr-user.conf"
-    echo
-    echo "    submap = global"
-    echo "    bind = Super+Shift, T, exec, skwd wall toggle"
-    echo "    submap = reset"
-    echo
-    echo "  IMPORTANTE: las lineas 'submap' son obligatorias con Caelestia."
-    echo "  Sin ellas el bind existe pero nunca se dispara (ver README)."
-    ;;
-  conf:no)
-    echo "  Config clasica (.conf). Pega esto en:"
-    echo "    $HYPR_DIR/hyprland.conf"
-    echo
-    echo "    bind = SUPER SHIFT, T, exec, skwd wall toggle"
-    ;;
-  *)
-    echo "  No encuentro tu configuracion de Hyprland en $HYPR_DIR."
-    echo "  Mira el README, seccion 'El ultimo paso es manual: el atajo'."
-    ;;
-esac
+DETECT="$(python3 "$BIND_PY" "$HYPR_DIR" "$CAE_DIR" "$BIND_KEY" detect)"
+FORMATO="$(printf '%s\n' "$DETECT" | sed -n 1p)"
+CAELESTIA="$(printf '%s\n' "$DETECT" | sed -n 2p)"
+DESTINO="$(printf '%s\n' "$DETECT" | sed -n 3p)"
+BLOQUE="$(printf '%s\n' "$DETECT" | tail -n +4)"
 
-if [ "$FORMATO" = "conf" ]; then
-  echo
-  echo "  (La sintaxis 'hl.bind(...)' es de Lua: en un .conf NO hace nada.)"
+# Cuantos binds Super+Shift+<tecla> hay ahora (modmask 65 = SUPER+SHIFT)
+CONTADOR_PY="$REPO_DIR/lib/contar_bind.py"
+contar_bind() {
+  hyprctl binds -j 2>/dev/null | python3 "$CONTADOR_PY" "$BIND_KEY" 2>/dev/null || echo -1
+}
+
+if [ -n "${SKWD_NO_BIND:-}" ]; then
+  c_warn "SKWD_NO_BIND activo: no toco tu configuracion."
+  c_warn "Esto es lo que tendrias que anadir a $DESTINO:"
+  printf '\n%s\n' "$BLOQUE"
+
+elif [ "$FORMATO" = "desconocido" ]; then
+  c_err "No encuentro hyprland.lua ni hyprland.conf en $HYPR_DIR."
+  c_err "Anade el atajo a mano; mira la seccion del atajo en el README."
+
+else
+  c_ok "Formato detectado: $FORMATO$([ "$CAELESTIA" = si ] && echo " + Caelestia")"
+  c_ok "Archivo destino: $DESTINO"
+
+  SEGUIR="si"
+  OCUPADA="$(contar_bind)"
+  if [ "$OCUPADA" -gt 0 ] 2>/dev/null; then
+    c_warn "Super+Shift+$BIND_KEY ya esta asignada a otra cosa en tu Hyprland."
+    c_warn "No la piso. Repite con otra letra, por ejemplo:"
+    c_warn "    SKWD_BIND_KEY=W ./install.sh"
+    SEGUIR="no"
+  fi
+
+  if [ "$SEGUIR" = "si" ] && [ -t 0 ]; then
+    printf '\n%s\n\n' "$BLOQUE"
+    printf '  Lo anado a %s? [S/n] ' "$(basename "$DESTINO")"
+    read -r RESP || RESP=""
+    case "$RESP" in
+      [nN]*) SEGUIR="no"; c_warn "De acuerdo, no toco el archivo." ;;
+    esac
+  fi
+
+  if [ "$SEGUIR" = "si" ]; then
+    ANTES="$(contar_bind)"
+    python3 "$BIND_PY" "$HYPR_DIR" "$CAE_DIR" "$BIND_KEY" apply
+
+    if command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
+      hyprctl reload >/dev/null 2>&1 || true
+      sleep 1
+      DESPUES="$(contar_bind)"
+      if [ "$DESPUES" -gt "$ANTES" ] 2>/dev/null; then
+        c_ok "Verificado: Super+Shift+$BIND_KEY ya responde. Pruebalo."
+      elif [ "$DESPUES" -gt 0 ] 2>/dev/null; then
+        c_ok "Super+Shift+$BIND_KEY figura registrado. Pruebalo."
+      else
+        c_err "Hyprland recargo pero el bind no figura registrado."
+        c_err "Revisa: hyprctl binds | grep -A3 'key: $BIND_KEY'"
+        c_err "Tus archivos tienen copia .bak-* al lado por si acaso."
+      fi
+    else
+      c_warn "Hyprland no esta corriendo: no puedo verificarlo ahora."
+      c_warn "Al entrar en tu sesion prueba Super+Shift+$BIND_KEY."
+    fi
+  fi
 fi
 
-echo
-echo "  Recarga con 'hyprctl reload' y pulsa Super + Shift + T."
-echo "  Para probar el selector sin tocar nada:  skwd wall toggle"
+echo "------------------------------------------------------------------"
+echo "  Para probar el selector sin atajo:  skwd wall toggle"
 echo "------------------------------------------------------------------"

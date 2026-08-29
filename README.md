@@ -71,7 +71,8 @@ El script:
 5. Si no encuentra Caelestia, vacía `postProcessing` para que no falle.
 6. Copia unos colores de arranque para la UI, porque con matugen apagado la
    barra superior del panel sería invisible.
-7. Te imprime la línea del atajo que tienes que pegar en Hyprland.
+7. **Pone el atajo `Super + Shift + T` él mismo** en el archivo correcto,
+   con la sintaxis correcta, y comprueba que Hyprland lo registra.
 
 Para usar otra carpeta de wallpapers:
 
@@ -79,43 +80,54 @@ Para usar otra carpeta de wallpapers:
 SKWD_WALLPAPER_DIR="$HOME/Fondos" ./install.sh
 ```
 
-### El último paso es manual: el atajo
+### El atajo se pone solo
 
-No toco tu configuración de Hyprland. El instalador detecta tu formato y te
-imprime la línea correcta, pero por si lo haces a mano:
+No tienes que pegar nada. `lib/bind.py` mira tu sistema y decide:
 
-**La sintaxis no depende de la versión de Hyprland, sino del formato de
-configuración que cargue.** Hyprland admite dos: el clásico `hyprlang`
-(`.conf`) y Lua. Si existe `~/.config/hypr/hyprland.lua`, manda Lua; si no,
-manda el `.conf`. Compruébalo:
+- **Qué formato usa tu Hyprland.** Si existe `~/.config/hypr/hyprland.lua`
+  manda Lua; si no, el `.conf` clásico. No depende de la versión: 0.56 ya
+  admite los dos.
+- **Si manda Caelestia**, comprobando que la config que Hyprland carga lo
+  integre — no basta con tener el comando instalado.
+- **Dónde escribir**: `hypr-user.lua` / `hypr-user.conf` con Caelestia (son los
+  que sobreviven a un update de los dots), o tu `hyprland.*` si no.
+- **Si hace falta el `submap`**, que es obligatorio en Caelestia con `.conf`.
+
+Antes de tocar nada hace copia de seguridad (`.bak-<fecha>`), y después recarga
+Hyprland y comprueba en `hyprctl binds` que el atajo quedó registrado.
+
+| Quiero... | Comando |
+|---|---|
+| Otra tecla | `SKWD_BIND_KEY=W ./install.sh` |
+| Que no toque mi config | `SKWD_NO_BIND=1 ./install.sh` (te imprime la línea) |
+
+Si `Super+Shift+T` ya está ocupada por otro atajo, **no la pisa**: te avisa y
+te dice cómo repetir con otra letra.
+
+#### Si prefieres hacerlo a mano
+
+La sintaxis depende del formato, no de la versión de Hyprland:
 
 ```bash
 ls ~/.config/hypr/hyprland.lua 2>/dev/null && echo "-> usa Lua" || echo "-> usa .conf"
 ```
 
-**Si usa `.conf`** (lo más común hoy):
-
-```conf
-bind = SUPER SHIFT, T, exec, skwd wall toggle
-```
-
-Va en `~/.config/hypr/hyprland.conf`, o en `~/.config/caelestia/hypr-user.conf`
-si usas Caelestia.
-
-**Si usa Lua:**
+**Lua:**
 
 ```lua
 hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd("skwd wall toggle"))
 ```
 
-Va en `~/.config/hypr/hyprland.lua`, o en `~/.config/caelestia/hypr-user.lua`
-si usas Caelestia. `hl` es la global que inyecta Hyprland en la config Lua, así
-que la línea vale tal cual en cualquier archivo `.lua` que Hyprland cargue.
+**`.conf`:**
 
-> Meter la línea Lua en un `.conf` (o al revés) **no da error visible**: el
-> atajo simplemente no hace nada. Es el fallo más habitual al copiar esto.
+```conf
+bind = SUPER SHIFT, T, exec, skwd wall toggle
+```
 
-Recarga con `hyprctl reload` y pulsa `Super + Shift + T`.
+> Meter la sintaxis `.conf` en un archivo `.lua` **rompe la configuración**:
+> Hyprland falla con `syntax error near 'toggle'`. Si te pasó, no lo arregles a
+> mano — vuelve a ejecutar `./install.sh` y él quita las líneas malas (guardando
+> copia) y pone las buenas.
 
 ### Si usas Caelestia
 
@@ -232,6 +244,17 @@ Compruébalo:
 command -v quickshell || sudo pacman -S quickshell
 pgrep -af 'quickshell -p /usr/share/skwd'
 ```
+
+**Hyprland dice `syntax error near 'toggle'` y se queda sin configuración.**
+Alguien pegó la línea `.conf` (`bind = ...`) dentro de un archivo `.lua`. Lua no
+entiende esa sintaxis y toda la config revienta. Solución:
+
+```bash
+cd skwd-wall-setup && ./install.sh
+```
+
+El instalador detecta las líneas en el formato equivocado, las quita dejando una
+copia `.bak-<fecha>` al lado, y escribe la versión correcta.
 
 **Pulso Super+Shift+T y no pasa nada.**
 Separa los dos problemas posibles. Primero, en una terminal:
