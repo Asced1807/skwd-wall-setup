@@ -151,8 +151,11 @@ systemctl --user restart skwd-daemon.service
 c_ok "Daemon reiniciado."
 
 # ------------------------------------------------------------- 8. Keybind
-# La sintaxis NO depende de la version de Hyprland, sino del formato de config
-# que cargue: si existe hyprland.lua manda Lua, si no, hyprlang (.conf).
+# Dos cosas deciden la linea correcta:
+#   1) El FORMATO de config: si existe hyprland.lua manda Lua, si no, hyprlang.
+#   2) Si usas CAELESTIA con .conf, sus 160 binds viven en 'submap = global' y
+#      la sesion se queda ahi -> un bind suelto cae en el submap por defecto
+#      (inactivo) y NO dispara nunca. Hay que envolverlo.
 HYPR_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/hypr"
 CAE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/caelestia"
 
@@ -164,44 +167,57 @@ else
   FORMATO="desconocido"
 fi
 
+if [ -d "$CAE_DIR" ] || command -v caelestia >/dev/null 2>&1; then
+  CAELESTIA="si"
+else
+  CAELESTIA="no"
+fi
+
 echo
 echo "------------------------------------------------------------------"
 echo "  ULTIMO PASO MANUAL: el atajo de teclado"
 echo "------------------------------------------------------------------"
 
-case "$FORMATO" in
-  lua)
-    if [ -f "$CAE_DIR/hypr-user.lua" ]; then
-      DESTINO="$CAE_DIR/hypr-user.lua"
-    else
-      DESTINO="$HYPR_DIR/hyprland.lua"
-    fi
-    echo "  Tu Hyprland carga configuracion en Lua ($HYPR_DIR/hyprland.lua)."
-    echo "  Pega esta linea en:  $DESTINO"
+case "$FORMATO:$CAELESTIA" in
+  lua:si)
+    echo "  Config en Lua + Caelestia. Pega esto en:"
+    echo "    $CAE_DIR/hypr-user.lua"
     echo
     echo '    hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd("skwd wall toggle"))'
     ;;
-  conf)
-    if [ -f "$CAE_DIR/hypr-user.conf" ]; then
-      DESTINO="$CAE_DIR/hypr-user.conf"
-    else
-      DESTINO="$HYPR_DIR/hyprland.conf"
-    fi
-    echo "  Tu Hyprland carga configuracion clasica (.conf, hyprlang)."
-    echo "  Pega esta linea en:  $DESTINO"
+  lua:no)
+    echo "  Config en Lua. Pega esto en:"
+    echo "    $HYPR_DIR/hyprland.lua"
+    echo
+    echo '    hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd("skwd wall toggle"))'
+    ;;
+  conf:si)
+    echo "  Config clasica (.conf) + Caelestia. Pega esto en:"
+    echo "    $CAE_DIR/hypr-user.conf"
+    echo
+    echo "    submap = global"
+    echo "    bind = Super+Shift, T, exec, skwd wall toggle"
+    echo "    submap = reset"
+    echo
+    echo "  IMPORTANTE: las lineas 'submap' son obligatorias con Caelestia."
+    echo "  Sin ellas el bind existe pero nunca se dispara (ver README)."
+    ;;
+  conf:no)
+    echo "  Config clasica (.conf). Pega esto en:"
+    echo "    $HYPR_DIR/hyprland.conf"
     echo
     echo "    bind = SUPER SHIFT, T, exec, skwd wall toggle"
-    echo
-    echo "  OJO: la sintaxis 'hl.bind(...)' es de Lua y aqui NO hace nada."
     ;;
   *)
     echo "  No encuentro tu configuracion de Hyprland en $HYPR_DIR."
-    echo "  Usa la linea que corresponda a tu formato:"
-    echo
-    echo "    .conf (hyprlang):  bind = SUPER SHIFT, T, exec, skwd wall toggle"
-    echo '    .lua            :  hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd("skwd wall toggle"))'
+    echo "  Mira el README, seccion 'El ultimo paso es manual: el atajo'."
     ;;
 esac
+
+if [ "$FORMATO" = "conf" ]; then
+  echo
+  echo "  (La sintaxis 'hl.bind(...)' es de Lua: en un .conf NO hace nada.)"
+fi
 
 echo
 echo "  Recarga con 'hyprctl reload' y pulsa Super + Shift + T."

@@ -117,6 +117,29 @@ que la línea vale tal cual en cualquier archivo `.lua` que Hyprland cargue.
 
 Recarga con `hyprctl reload` y pulsa `Super + Shift + T`.
 
+### Si usas Caelestia
+
+Caelestia manda en la configuración de Hyprland, así que el atajo va en **su**
+archivo de usuario, no en el de Hyprland: `hypr-user.lua` o `hypr-user.conf`
+según tu formato. Los dots de Caelestia se sobrescriben al actualizar; esos dos
+archivos existen justo para lo que añades tú, y se cargan al final.
+
+Y con **Caelestia en `.conf`** hay una trampa: sus binds viven dentro de
+`submap = global` y la sesión se queda permanentemente en ese submap, así que
+un `bind` suelto se registra en el submap por defecto —inactivo— y **no dispara
+nunca**. Hay que envolverlo:
+
+```conf
+submap = global
+bind = Super+Shift, T, exec, skwd wall toggle
+submap = reset
+```
+
+Con **Caelestia en Lua** no hace falta: ahí los binds ya no usan submap y
+`hl.bind(...)` vale tal cual.
+
+
+
 ---
 
 ## Instalación manual (sin el script)
