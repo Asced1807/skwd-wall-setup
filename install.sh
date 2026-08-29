@@ -5,6 +5,7 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/skwd-wall"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/skwd-wall"
 CONFIG_FILE="$CONFIG_DIR/config.json"
 
 c_ok()   { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
@@ -19,6 +20,11 @@ if ! command -v pacman >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v hyprctl >/dev/null 2>&1; then
+  c_warn "No detecto Hyprland. La config trae 'compositor: hyprland';"
+  c_warn "si usas niri o KDE cambialo en $CONFIG_FILE al terminar."
+fi
+
 AUR_HELPER=""
 for helper in yay paru; do
   if command -v "$helper" >/dev/null 2>&1; then AUR_HELPER="$helper"; break; fi
@@ -31,6 +37,16 @@ fi
 c_ok "Helper AUR: $AUR_HELPER"
 
 # ------------------------------------------------------------- 2. Dependencias
+# quickshell NO figura en las dependencias de skwd-daemon-bin, pero el daemon
+# dibuja el panel con el:  quickshell -p /usr/share/skwd/skwd-daemon/host/shell.qml
+# Sin quickshell el daemon arranca pero el selector no aparece nunca.
+if ! command -v quickshell >/dev/null 2>&1; then
+  c_ok "Instalando quickshell (lo necesita el panel; no es dependencia declarada)..."
+  sudo pacman -S --needed --noconfirm quickshell
+else
+  c_ok "quickshell presente: $(command -v quickshell)"
+fi
+
 if ! command -v skwd >/dev/null 2>&1; then
   c_ok "Instalando skwd-daemon-bin desde el AUR..."
   "$AUR_HELPER" -S --needed skwd-daemon-bin
@@ -62,7 +78,20 @@ fi
 
 # ------------------------------------ 4. Primer arranque (bootstrap de skwd)
 c_ok "Habilitando skwd-daemon.service..."
-systemctl --user enable --now skwd-daemon.service
+systemctl --user enable skwd-daemon.service
+
+if ! systemctl --user start skwd-daemon.service; then
+  c_err "El servicio no arranco. Mira: journalctl --user -u skwd-daemon.service -n 50"
+  exit 1
+fi
+
+# El servicio cuelga de graphical-session.target. Si tu sesion no lo levanta
+# (Hyprland lanzado a pelo, sin uwsm), 'enable' no bastara en el proximo login.
+if ! systemctl --user is-active --quiet graphical-session.target; then
+  c_warn "graphical-session.target NO esta activo en tu sesion."
+  c_warn "El daemon no arrancara solo al iniciar sesion. Anade a tu Hyprland:"
+  c_warn "    exec-once = systemctl --user start skwd-daemon.service"
+fi
 
 # El daemon crea ~/.config/skwd-wall con sus plantillas la primera vez.
 for _ in $(seq 1 20); do
@@ -87,7 +116,8 @@ sed "s|__WALLPAPER_DIR__|$WALLPAPER_DIR|" "$REPO_DIR/config/config.json" > "$CON
 # El post-procesado solo tiene sentido si usas Caelestia.
 if ! command -v caelestia >/dev/null 2>&1; then
   c_warn "No detecto Caelestia: quito el post-procesado (postProcessing vacio)."
-  c_warn "Sin el, skwd solo elige el fondo y no dispara ningun theming."
+  c_warn "Sin el, skwd solo elige el fondo y no lo aplica nadie."
+  c_warn "Lee la seccion 'Si no usas Caelestia' del README."
   python3 - "$CONFIG_FILE" <<'PY'
 import json, sys
 path = sys.argv[1]
@@ -105,11 +135,22 @@ fi
 python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$CONFIG_FILE"
 c_ok "Config escrita en $CONFIG_FILE"
 
-# ------------------------------------------------------------ 6. Recargar
+# ------------------------------------------- 6. Colores de arranque de la UI
+# Con matugen desactivado skwd no genera ~/.cache/skwd-wall/colors.json, y sin
+# ese archivo la barra superior del panel (filtros + engranaje) es INVISIBLE.
+mkdir -p "$CACHE_DIR"
+if [ ! -f "$CACHE_DIR/colors.json" ]; then
+  cp "$REPO_DIR/config/colors.json" "$CACHE_DIR/colors.json"
+  c_ok "Colores de arranque de la UI puestos (barra superior visible)."
+else
+  c_ok "Ya existe $CACHE_DIR/colors.json, lo respeto."
+fi
+
+# ------------------------------------------------------------ 7. Recargar
 systemctl --user restart skwd-daemon.service
 c_ok "Daemon reiniciado."
 
-# ------------------------------------------------------------- 7. Keybind
+# ------------------------------------------------------------- 8. Keybind
 cat <<'MSG'
 
 ------------------------------------------------------------------
@@ -123,7 +164,7 @@ cat <<'MSG'
   Hyprland clasico (.conf):
     bind = SUPER SHIFT, T, exec, skwd wall toggle
 
-  Recarga Hyprland y pulsa Super + Shift + T.
+  Recarga Hyprland (hyprctl reload) y pulsa Super + Shift + T.
   Para probarlo ya mismo sin tocar nada:  skwd wall toggle
 ------------------------------------------------------------------
 MSG
