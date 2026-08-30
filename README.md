@@ -68,7 +68,9 @@ Super+Shift+T → eliges fondo → caelestia wallpaper → paleta Material You
 ```
 
 Necesita Caelestia y `python3`. Detalle y personalización en
-[docs/manual.md](docs/manual.md#colores-que-siguen-al-fondo).
+[docs/manual.md](docs/manual.md#colores-que-siguen-al-fondo). El resto de mis
+ajustes de Caelestia (barra, atajos, parches) está en
+[caelestia-config](https://github.com/Asced1807/caelestia-config).
 
 ## Si algo falla
 
