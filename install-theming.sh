@@ -94,6 +94,14 @@ c_ok "theme.postHook registrado en $CLI_JSON"
 # El hook escribe el tema en kitty-themes/01-Wallust.conf (nombre heredado de
 # wallust); kitty solo lo carga si su config lo incluye.
 if command -v kitty >/dev/null 2>&1; then
+  # Marcador para que kitty no avise de un include inexistente mientras no
+  # hayas cambiado de fondo por primera vez.
+  KITTY_THEME_OUT="$CONFIG_HOME/kitty/$KITTY_INCLUDE"
+  if [ ! -f "$KITTY_THEME_OUT" ]; then
+    mkdir -p "$(dirname "$KITTY_THEME_OUT")"
+    printf '# Lo rellena caelestia-to-nemo en el primer cambio de fondo.\n' > "$KITTY_THEME_OUT"
+  fi
+
   if [ ! -f "$KITTY_CONF" ]; then
     mkdir -p "$(dirname "$KITTY_CONF")"
     printf 'include %s\n' "$KITTY_INCLUDE" > "$KITTY_CONF"
