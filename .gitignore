@@ -1,2 +1,5 @@
 *.bak-*
 *.bak
+
+# Estado que el CLI de caelestia escribe si XDG_STATE_HOME viene vacio
+/caelestia/
