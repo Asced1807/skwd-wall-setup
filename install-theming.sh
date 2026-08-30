@@ -17,6 +17,10 @@ HOOK="$BIN_DIR/caelestia-to-nemo"
 KITTY_CONF="$CONFIG_HOME/kitty/kitty.conf"
 KITTY_INCLUDE="kitty-themes/01-Wallust.conf"
 SCHEME="${XDG_STATE_HOME:-$HOME/.local/state}/caelestia/scheme.json"
+# Sobrescribibles: para instalaciones de Caelestia fuera de lo normal (y para
+# poder probar este script sin tenerla instalada).
+CAELESTIA_BIN="${CAELESTIA_BIN:-caelestia}"
+CAELESTIA_QML="${CAELESTIA_QML:-/etc/xdg/quickshell/caelestia}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 c_ok()   { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
@@ -33,20 +37,116 @@ copia_con_backup() {
   install -Dm644 "$src" "$dst"
 }
 
+# ------------------------------------------------------------ 0. Utilidades
+# AUTO_YES=1 (o -y) instala todo sin preguntar. Sin terminal interactiva se
+# asume que no: nadie puede contestar, y no se instala nada a escondidas.
+AUTO_YES="${AUTO_YES:-}"
+case "${1:-}" in -y|--yes) AUTO_YES=1 ;; esac
+
+confirmar() {
+  [ -n "$AUTO_YES" ] && return 0
+  [ -t 0 ] || return 1
+  printf '    %s [S/n] ' "$1"
+  local resp
+  read -r resp || resp=""
+  case "$resp" in [nN]*) return 1 ;; *) return 0 ;; esac
+}
+
+# Devuelve por stdout el helper AUR, instalando yay si hace falta y se acepta.
+helper_aur() {
+  local h
+  for h in yay paru; do
+    if command -v "$h" >/dev/null 2>&1; then echo "$h"; return 0; fi
+  done
+
+  c_warn "No tienes ningun helper del AUR (yay o paru), y hacen falta"        >&2
+  c_warn "para instalar Caelestia."                                            >&2
+  if ! confirmar "Instalo yay?" >&2; then return 1; fi
+
+  sudo pacman -S --needed --noconfirm git base-devel >&2 || return 1
+  local tmp
+  tmp="$(mktemp -d)"
+  git clone -q https://aur.archlinux.org/yay-bin.git "$tmp/yay-bin" >&2 || { rm -rf "$tmp"; return 1; }
+  ( cd "$tmp/yay-bin" && makepkg -si --noconfirm >&2 ) || { rm -rf "$tmp"; return 1; }
+  rm -rf "$tmp"
+  command -v yay >/dev/null 2>&1 && { echo yay; return 0; }
+  return 1
+}
+
+instalar_repo() { sudo pacman -S --needed --noconfirm "$@"; }
+
+instalar_aur() {
+  local helper
+  helper="$(helper_aur)" || return 1
+  "$helper" -S --needed "$@"
+}
+
 # ---------------------------------------------------------------- 1. Requisitos
-if ! command -v caelestia >/dev/null 2>&1; then
-  c_err "Esto es una extension de Caelestia y no lo encuentro."
-  c_err "Sin Caelestia no hay paleta que copiar:  https://github.com/caelestia-dots/shell"
-  exit 1
+if ! command -v pacman >/dev/null 2>&1; then
+  c_warn "No es Arch: no puedo instalar nada por ti."
+  c_warn "Necesitas Caelestia (shell + cli) y python3 antes de seguir."
 fi
 
+# --- Caelestia: imprescindible, es quien calcula la paleta ---
+FALTA_CAE=""
+command -v "$CAELESTIA_BIN" >/dev/null 2>&1 || FALTA_CAE="caelestia-cli"
+[ -d "$CAELESTIA_QML" ] || FALTA_CAE="$FALTA_CAE caelestia-shell"
+
+if [ -n "$FALTA_CAE" ]; then
+  c_warn "Falta Caelestia, que es quien calcula la paleta del fondo."
+  c_warn "Paquetes del AUR que hacen falta:$FALTA_CAE"
+
+  if ! command -v pacman >/dev/null 2>&1; then
+    c_err "Instalalo a mano:  https://github.com/caelestia-dots/shell"
+    exit 1
+  fi
+
+  if confirmar "Lo instalo ahora?"; then
+    # shellcheck disable=SC2086
+    if instalar_aur $FALTA_CAE; then
+      c_ok "Caelestia instalada."
+    else
+      c_err "No he podido instalarla. Hazlo a mano y vuelve a ejecutarme:"
+      c_err "    yay -S$FALTA_CAE"
+      exit 1
+    fi
+  else
+    c_err "Sin Caelestia esto no tiene nada de donde sacar los colores."
+    c_err "Cuando la tengas, vuelve a ejecutarme."
+    exit 1
+  fi
+fi
+
+# --- python3: el hook esta escrito en Python ---
 if ! command -v python3 >/dev/null 2>&1; then
-  c_err "Falta python3 (el hook esta escrito en Python)."
-  exit 1
+  if command -v pacman >/dev/null 2>&1 && confirmar "Falta python3. Lo instalo?"; then
+    instalar_repo python || { c_err "No he podido instalar python3."; exit 1; }
+  else
+    c_err "Falta python3 (el hook esta escrito en Python)."
+    exit 1
+  fi
 fi
 
-command -v nemo  >/dev/null 2>&1 || c_warn "Nemo no esta instalado: el CSS se generara igual, sin efecto visible."
-command -v kitty >/dev/null 2>&1 || c_warn "kitty no esta instalado: se omitira su parte."
+# --- Nemo y kitty: opcionales, cada uno se salta si no esta ---
+USAR_NEMO="si"
+if ! command -v nemo >/dev/null 2>&1; then
+  if command -v pacman >/dev/null 2>&1 && confirmar "No tienes Nemo. Lo instalo?"; then
+    instalar_repo nemo || USAR_NEMO="no"
+  else
+    USAR_NEMO="no"
+    c_warn "Sin Nemo: genero su CSS igual, no estorba, pero no veras el efecto."
+  fi
+fi
+
+USAR_KITTY="si"
+if ! command -v kitty >/dev/null 2>&1; then
+  if command -v pacman >/dev/null 2>&1 && confirmar "No tienes kitty. Lo instalo?"; then
+    instalar_repo kitty || USAR_KITTY="no"
+  else
+    USAR_KITTY="no"
+    c_warn "Sin kitty: me salto su tema."
+  fi
+fi
 
 # ------------------------------------------------------------------- 2. Hook
 mkdir -p "$BIN_DIR"
@@ -93,7 +193,7 @@ c_ok "theme.postHook registrado en $CLI_JSON"
 # -------------------------------------------------------------- 5. kitty
 # El hook escribe el tema en kitty-themes/01-Wallust.conf (nombre heredado de
 # wallust); kitty solo lo carga si su config lo incluye.
-if command -v kitty >/dev/null 2>&1; then
+if [ "$USAR_KITTY" = "si" ]; then
   # Marcador para que kitty no avise de un include inexistente mientras no
   # hayas cambiado de fondo por primera vez.
   KITTY_THEME_OUT="$CONFIG_HOME/kitty/$KITTY_INCLUDE"
@@ -128,6 +228,43 @@ else
   c_warn "Aplica un fondo (Super + Shift + T) y los colores se generaran solos."
 fi
 
+# ------------------------------------------------------ 7. Comprobacion
+# Nada de "listo" a ciegas: se comprueba una por una cada pieza.
+fallos=0
+check() {
+  if eval "$2" >/dev/null 2>&1; then
+    printf '    \033[1;32m[ok]\033[0m   %s\n' "$1"
+  else
+    printf '    \033[1;31m[FALLA]\033[0m %s\n' "$1"
+    fallos=$((fallos + 1))
+  fi
+}
+
+echo
 echo "------------------------------------------------------------------"
-echo "  Listo. Cambia de fondo y Nemo y kitty cambiaran con el."
+echo "  COMPROBACION"
 echo "------------------------------------------------------------------"
+check "hook ejecutable en ~/.local/bin"      "[ -x '$HOOK' ]"
+check "plantilla de Nemo"                    "[ -f '$CAE_DIR/nemo.css.template' ]"
+check "plantilla de kitty"                   "[ -f '$CAE_DIR/kitty.conf.template' ]"
+check "cli.json es JSON valido"              "python3 -c \"import json;json.load(open('$CLI_JSON'))\""
+check "postHook apunta al hook"              "python3 -c \"import json,sys;sys.exit(0 if json.load(open('$CLI_JSON')).get('theme',{}).get('postHook')=='$HOOK' else 1)\""
+[ "$USAR_KITTY" = "si" ] && check "kitty.conf incluye el tema" "grep -q '$KITTY_INCLUDE' '$KITTY_CONF'"
+
+if [ -f "$SCHEME" ]; then
+  check "nemo.css generado (gtk-3.0)"        "[ -s '$CONFIG_HOME/gtk-3.0/nemo.css' ]"
+  check "gtk.css lo importa"                 "grep -q 'nemo.css' '$CONFIG_HOME/gtk-3.0/gtk.css'"
+fi
+
+echo "------------------------------------------------------------------"
+if [ "$fallos" -eq 0 ]; then
+  if [ -f "$SCHEME" ]; then
+    c_ok "Todo en orden. Cambia de fondo y Nemo y kitty cambiaran con el."
+  else
+    c_ok "Todo en orden. Aplica un fondo y ya cambiaran solos."
+    c_warn "Si acabas de instalar Caelestia, arrancala antes:  caelestia shell -d"
+  fi
+else
+  c_err "$fallos comprobacion(es) han fallado; mira las lineas [FALLA] de arriba."
+  exit 1
+fi

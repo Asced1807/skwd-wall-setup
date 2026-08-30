@@ -67,7 +67,12 @@ Super+Shift+T → eliges fondo → caelestia wallpaper → paleta Material You
                                                    → Nemo y kitty (este hook)
 ```
 
-Necesita Caelestia y `python3`. Detalle y personalización en
+**Si te falta algo, te lo instala.** Comprueba Caelestia (`caelestia-shell` y
+`caelestia-cli` del AUR), `python3`, Nemo y kitty, preguntando antes de cada
+uno; con `./install-theming.sh -y` no pregunta. Y al final comprueba pieza por
+pieza que quedó bien, con `[ok]` o `[FALLA]`.
+
+Detalle y personalización en
 [docs/manual.md](docs/manual.md#colores-que-siguen-al-fondo). El resto de mis
 ajustes de Caelestia (barra, atajos, parches) está en
 [caelestia-config](https://github.com/Asced1807/caelestia-config).
