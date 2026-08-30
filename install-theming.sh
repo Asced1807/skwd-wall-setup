@@ -215,6 +215,65 @@ if [ "$USAR_KITTY" = "si" ]; then
   fi
 fi
 
+# ------------------------------------- 5.4 Reparar el enlace con skwd
+# Si instalaste skwd ANTES que Caelestia, su install.sh dejo postProcessing
+# vacio a proposito (no habia nada que aplicara el fondo). Ahora que Caelestia
+# esta, ese hueco significa que elegir fondo no dispara absolutamente nada.
+SKWD_CONF="$CONFIG_HOME/skwd-wall/config.json"
+if [ -f "$SKWD_CONF" ]; then
+  if python3 -c "
+import json, sys
+try:
+    cfg = json.load(open('$SKWD_CONF'))
+except Exception:
+    sys.exit(1)
+sys.exit(0 if not cfg.get('postProcessing') else 1)
+" 2>/dev/null; then
+    c_warn "skwd esta instalado pero no aplica el fondo con Caelestia"
+    c_warn "(postProcessing vacio: pasa si instalaste skwd antes que Caelestia)."
+    if confirmar "Lo conecto?"; then
+      cp "$SKWD_CONF" "$SKWD_CONF.bak-$STAMP"
+      python3 -c "
+import json
+p = '$SKWD_CONF'
+cfg = json.load(open(p))
+cfg['postProcessing'] = [{'command': 'caelestia wallpaper -n -f \"%path%\"', 'type': 'all'}]
+json.dump(cfg, open(p, 'w'), indent=2)
+open(p, 'a').write('\n')
+"
+      systemctl --user restart skwd-daemon.service 2>/dev/null || true
+      c_ok "skwd conectado con Caelestia (backup: $(basename "$SKWD_CONF").bak-$STAMP)."
+    fi
+  fi
+fi
+
+# ------------------------------------------------ 5.5 Esquema dinamico
+# LO MAS IMPORTANTE, y lo que mas despista: Caelestia trae de fabrica un
+# esquema FIJO (catppuccin, gruvbox...). Con un esquema fijo la paleta no sale
+# del fondo, asi que puedes tener el hook perfectamente instalado y no ver
+# cambiar ni un color al cambiar de wallpaper.
+SCHEME_ACTUAL="$("$CAELESTIA_BIN" scheme get -n 2>/dev/null || true)"
+
+if [ "$SCHEME_ACTUAL" = "dynamic" ]; then
+  c_ok "Esquema de color: dynamic (sale del fondo)."
+elif [ -z "$SCHEME_ACTUAL" ]; then
+  c_warn "No he podido leer el esquema actual (la shell puede estar parada)."
+  c_warn "Comprueba luego:  caelestia scheme get -n   ->  tiene que decir 'dynamic'"
+else
+  c_warn "Tu esquema es '$SCHEME_ACTUAL', no 'dynamic': los colores salen de una"
+  c_warn "paleta fija y NO del fondo. Es justo lo que impide ver cambios."
+  if confirmar "Lo pongo en dynamic?"; then
+    if "$CAELESTIA_BIN" scheme set -n dynamic; then
+      c_ok "Esquema dinamico activado."
+    else
+      c_err "No he podido cambiarlo. Hazlo a mano:  caelestia scheme set -n dynamic"
+    fi
+  else
+    c_warn "Sin 'dynamic' no veras ningun cambio. Cuando quieras:"
+    c_warn "    caelestia scheme set -n dynamic"
+  fi
+fi
+
 # ------------------------------------------------------ 6. Primera pasada
 if [ -f "$SCHEME" ]; then
   if "$HOOK"; then
@@ -247,6 +306,7 @@ echo "------------------------------------------------------------------"
 check "hook ejecutable en ~/.local/bin"      "[ -x '$HOOK' ]"
 check "plantilla de Nemo"                    "[ -f '$CAE_DIR/nemo.css.template' ]"
 check "plantilla de kitty"                   "[ -f '$CAE_DIR/kitty.conf.template' ]"
+check "esquema dinamico activo"               "[ \"\$('$CAELESTIA_BIN' scheme get -n 2>/dev/null)\" = dynamic ]"
 check "cli.json es JSON valido"              "python3 -c \"import json;json.load(open('$CLI_JSON'))\""
 check "postHook apunta al hook"              "python3 -c \"import json,sys;sys.exit(0 if json.load(open('$CLI_JSON')).get('theme',{}).get('postHook')=='$HOOK' else 1)\""
 [ "$USAR_KITTY" = "si" ] && check "kitty.conf incluye el tema" "grep -q '$KITTY_INCLUDE' '$KITTY_CONF'"

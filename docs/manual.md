@@ -294,6 +294,41 @@ confunde a las barras (Waybar, Caelestia...). Por eso `features.music` va en
 `systemctl --user restart skwd-daemon.service`: recargar la config **no**
 reescanea la carpeta.
 
+**Cambio de fondo y no cambia ningún color.**
+Casi siempre es el **esquema de color**: Caelestia trae uno fijo de fábrica y
+entonces la paleta no sale del wallpaper. Compruébalo:
+
+```bash
+caelestia scheme get -n     # tiene que decir: dynamic
+```
+
+Si dice otra cosa (`catppuccin`, `gruvbox`, `nord`...):
+
+```bash
+caelestia scheme set -n dynamic
+```
+
+Y vuelve a aplicar un fondo, porque el cambio de esquema no repinta por sí solo.
+
+Las otras dos causas, por orden de frecuencia:
+
+```bash
+# 1. skwd no llama a Caelestia (pasa si instalaste skwd ANTES que Caelestia)
+python3 -c "import json;print(json.load(open('$HOME/.config/skwd-wall/config.json'))['postProcessing'])"
+# vacio []  ->  vuelve a ejecutar ./install-theming.sh, que lo repara
+
+# 2. el hook no esta registrado
+python3 -c "import json;print(json.load(open('$HOME/.config/caelestia/cli.json'))['theme'])"
+# tiene que salir postHook apuntando a ~/.local/bin/caelestia-to-nemo
+```
+
+**¿Hay que reiniciar algo?** El esquema y el fondo se aplican en vivo; no hace
+falta reiniciar nada. Solo si tocas a mano `config.json` de skwd:
+`systemctl --user restart skwd-daemon.service`. Y ojo: **Caelestia no trae
+servicio de systemd**, la shell se lanza con `caelestia shell -d`, así que
+`systemctl --user restart caelestia-shell.service` solo funciona si esa unit te
+la has hecho tú.
+
 **Nemo se cierra y se vuelve a abrir al cambiar de fondo.**
 Es a propósito: GTK no recarga el CSS de una ventana ya abierta, así que el
 hook cierra Nemo y lo relanza. Si prefieres que no lo haga (y aplicar el color

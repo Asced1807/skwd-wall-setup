@@ -67,6 +67,12 @@ Super+Shift+T → eliges fondo → caelestia wallpaper → paleta Material You
                                                    → Nemo y kitty (este hook)
 ```
 
+> **El paso que más despista:** Caelestia trae de fábrica un esquema de color
+> **fijo** (catppuccin, gruvbox...). Con un esquema fijo la paleta no sale del
+> fondo y no cambia nada de color por mucho que el hook esté puesto. El
+> instalador lo detecta y te ofrece cambiarlo; a mano es
+> `caelestia scheme set -n dynamic`.
+
 **Si te falta algo, te lo instala.** Comprueba Caelestia (`caelestia-shell` y
 `caelestia-cli` del AUR), `python3`, Nemo y kitty, preguntando antes de cada
 uno; con `./install-theming.sh -y` no pregunta. Y al final comprueba pieza por
