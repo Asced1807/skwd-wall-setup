@@ -49,6 +49,27 @@ Si está vacía, descarga desde la pestaña **Wallhaven** del panel.
 | Que no toque mi config de Hyprland | `SKWD_NO_BIND=1 ./install.sh` |
 | Que no pregunte nada | `SKWD_YES=1 ./install.sh` |
 
+## Colores que siguen al fondo (opcional)
+
+Caelestia ya recolorea su barra y las apps GTK con cada fondo nuevo, pero se
+queda ahí. Con esto **Nemo y kitty también cambian de color** con el wallpaper:
+
+```bash
+./install-theming.sh
+```
+
+Instala un `postHook` que, cada vez que Caelestia recalcula su paleta, regenera
+desde ella el CSS de Nemo y el tema de kitty. La cadena completa queda así:
+
+```
+Super+Shift+T → eliges fondo → caelestia wallpaper → paleta Material You
+                                                   → barra y apps GTK (Caelestia)
+                                                   → Nemo y kitty (este hook)
+```
+
+Necesita Caelestia y `python3`. Detalle y personalización en
+[docs/manual.md](docs/manual.md#colores-que-siguen-al-fondo).
+
 ## Si algo falla
 
 **El panel no abre.** Casi siempre falta `quickshell`, que no es dependencia

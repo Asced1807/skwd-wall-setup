@@ -258,3 +258,9 @@ fi
 echo "------------------------------------------------------------------"
 echo "  Para probar el selector sin atajo:  skwd wall toggle"
 echo "------------------------------------------------------------------"
+
+if command -v caelestia >/dev/null 2>&1; then
+  echo
+  c_ok "Extra: ./install-theming.sh hace que Nemo y kitty tambien cambien"
+  c_ok "de color con el fondo (Caelestia solo repinta su barra y GTK)."
+fi

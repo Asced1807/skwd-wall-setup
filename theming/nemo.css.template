@@ -1,0 +1,284 @@
+/* =========================================================================
+   Nemo - tema dinamico caelestia
+   Generado por ~/.local/bin/caelestia-to-nemo desde scheme.json
+   Editar la plantilla, no este archivo de salida.
+   ========================================================================= */
+
+/* ---- Reset ---- */
+.nemo-window * {
+    outline: none;
+}
+
+/* ---- Fondo ventana ---- */
+.nemo-window,
+.nemo-window.background {
+    background-color: {{ $background }};
+    color: {{ $onBackground }};
+}
+
+/* ---- Headerbar / Toolbar superior ---- */
+.nemo-window headerbar,
+.nemo-window .titlebar,
+.nemo-window .primary-toolbar,
+.nemo-window toolbar {
+    background-color: {{ $surfaceDim }};
+    background-image: none;
+    border: none;
+    box-shadow: none;
+    color: {{ $onSurface }};
+    padding: 6px 8px;
+}
+
+.nemo-window headerbar entry,
+.nemo-window .location-entry,
+.nemo-window entry {
+    background-color: {{ $surfaceContainer }};
+    color: {{ $onSurface }};
+    border: 1px solid alpha({{ $primary }}, 0.15);
+    border-radius: 4px;
+    padding: 4px 8px;
+    box-shadow: none;
+}
+.nemo-window entry:focus {
+    border-color: {{ $primary }};
+    box-shadow: none;
+}
+
+/* ---- Pathbar / Breadcrumbs ---- */
+.nemo-window .path-bar-button,
+.nemo-window button.pathbar-button,
+.nemo-window .nemo-pathbar button {
+    background-color: transparent;
+    background-image: none;
+    border: none;
+    border-radius: 4px;
+    box-shadow: none;
+    padding: 4px 10px;
+    color: {{ $onSurfaceVariant }};
+    transition: all 150ms ease;
+}
+.nemo-window .path-bar-button:hover,
+.nemo-window button.pathbar-button:hover {
+    background-color: alpha({{ $primary }}, 0.08);
+    color: {{ $onSurface }};
+}
+.nemo-window .path-bar-button:checked,
+.nemo-window button.pathbar-button:checked,
+.nemo-window .path-bar-button:active {
+    background-color: alpha({{ $primary }}, 0.18);
+    color: {{ $primary }};
+    box-shadow: none;
+}
+
+/* ---- Botones del toolbar ---- */
+.nemo-window button:not(.path-bar-button):not(.titlebutton) {
+    background-color: transparent;
+    background-image: none;
+    border: none;
+    border-radius: 4px;
+    box-shadow: none;
+    padding: 6px 8px;
+    color: {{ $onSurface }};
+    transition: background-color 150ms ease;
+}
+.nemo-window button:not(.path-bar-button):not(.titlebutton):hover {
+    background-color: alpha({{ $onSurface }}, 0.08);
+}
+.nemo-window button:not(.path-bar-button):not(.titlebutton):active,
+.nemo-window button:not(.path-bar-button):not(.titlebutton):checked {
+    background-color: alpha({{ $primary }}, 0.18);
+    color: {{ $primary }};
+}
+
+/* ---- Sidebar (lugares) ---- */
+.nemo-window .sidebar,
+.nemo-window placessidebar,
+.nemo-window .nemo-places-sidebar {
+    background-color: {{ $surfaceContainerLow }};
+    border: none;
+    color: {{ $onSurfaceVariant }};
+    padding: 4px 0;
+}
+
+.nemo-window .sidebar row,
+.nemo-window placessidebar row,
+.nemo-window .nemo-places-sidebar row {
+    background-color: transparent;
+    border-radius: 4px;
+    margin: 1px 6px;
+    padding: 4px 8px;
+    min-height: 28px;
+    color: {{ $onSurfaceVariant }};
+    transition: background-color 150ms ease;
+}
+.nemo-window .sidebar row:hover,
+.nemo-window placessidebar row:hover {
+    background-color: alpha({{ $onSurface }}, 0.06);
+    color: {{ $onSurface }};
+}
+.nemo-window .sidebar row:selected,
+.nemo-window placessidebar row:selected {
+    background-color: alpha({{ $primary }}, 0.18);
+    color: {{ $primary }};
+}
+
+.nemo-window .sidebar separator,
+.nemo-window placessidebar separator {
+    background-color: alpha({{ $primary }}, 0.08);
+    min-height: 1px;
+    margin: 6px 12px;
+}
+
+/* ---- Paned separator entre sidebar y vista principal ---- */
+.nemo-window paned > separator {
+    background-color: alpha({{ $primary }}, 0.05);
+    background-image: none;
+    min-width: 1px;
+    box-shadow: none;
+}
+
+/* ---- Vista principal de archivos ---- */
+.nemo-window .view,
+.nemo-window iconview,
+.nemo-window treeview {
+    background-color: {{ $background }};
+    color: {{ $onBackground }};
+    border: none;
+}
+
+.nemo-window .view:selected,
+.nemo-window iconview:selected,
+.nemo-window treeview:selected,
+.nemo-window treeview.view cell:selected,
+.nemo-window .view *:selected {
+    background-color: alpha({{ $primary }}, 0.22);
+    color: {{ $primary }};
+    border-radius: 4px;
+}
+
+/* El sidebar de Nemo es un GtkTreeView (no un GtkListBox), asi que las reglas
+   `.sidebar row:selected` de arriba no lo tocan: sin esto cae en la regla
+   generica de la vista y hereda su color de texto. */
+.nemo-window .sidebar treeview.view cell:selected,
+.nemo-window .sidebar .view:selected {
+    background-color: alpha({{ $primary }}, 0.18);
+    color: {{ $primary }};
+}
+
+.nemo-window .rubberband,
+.nemo-window rubberband {
+    background-color: alpha({{ $primary }}, 0.15);
+    border: 1px solid {{ $primary }};
+    border-radius: 2px;
+}
+
+/* ---- Treeview headers (modo lista) ---- */
+.nemo-window treeview header button {
+    background-color: {{ $surfaceContainer }};
+    color: {{ $onSurfaceVariant }};
+    border: none;
+    border-right: 1px solid alpha({{ $primary }}, 0.08);
+    border-radius: 0;
+    box-shadow: none;
+    padding: 6px 10px;
+}
+.nemo-window treeview header button:hover {
+    background-color: {{ $surfaceContainerHigh }};
+    color: {{ $onSurface }};
+}
+
+/* ---- Tabs ---- */
+.nemo-window notebook header.top {
+    background-color: transparent;
+    border: none;
+    padding: 0 6px;
+}
+
+.nemo-window notebook header tabs tab,
+.nemo-window notebook tab {
+    background-color: transparent;
+    border: none;
+    border-radius: 4px;
+    margin: 4px 2px;
+    padding: 4px 12px;
+    color: {{ $onSurfaceVariant }};
+    box-shadow: none;
+    transition: all 150ms ease;
+}
+.nemo-window notebook tab:hover {
+    background-color: alpha({{ $primary }}, 0.08);
+    color: {{ $onSurface }};
+}
+.nemo-window notebook tab:checked {
+    background-color: alpha({{ $primary }}, 0.18);
+    color: {{ $primary }};
+}
+
+/* ---- Statusbar ---- */
+.nemo-window statusbar {
+    background-color: {{ $surfaceContainerLow }};
+    color: {{ $onSurfaceVariant }};
+    border-top: 1px solid alpha({{ $primary }}, 0.06);
+    border-radius: 0;
+    padding: 4px 12px;
+    margin: 0;
+    min-height: 24px;
+    font-size: 0.88em;
+}
+
+/* ---- Popups / Menus ---- */
+.nemo-window menu,
+.nemo-window popover,
+.nemo-window .menu,
+menu.nemo,
+popover.nemo {
+    background-color: {{ $surfaceContainer }};
+    color: {{ $onSurface }};
+    border: 1px solid alpha({{ $primary }}, 0.12);
+    border-radius: 6px;
+    padding: 4px;
+    box-shadow: 0 4px 12px alpha(#000000, 0.4);
+}
+
+.nemo-window menu menuitem,
+.nemo-window menuitem {
+    border-radius: 4px;
+    padding: 6px 12px;
+    color: {{ $onSurface }};
+}
+.nemo-window menu menuitem:hover,
+.nemo-window menuitem:hover {
+    background-color: alpha({{ $primary }}, 0.15);
+    color: {{ $primary }};
+}
+
+/* ---- Scrollbars discretas ---- */
+.nemo-window scrollbar {
+    background-color: transparent;
+    border: none;
+}
+.nemo-window scrollbar slider {
+    background-color: alpha({{ $onSurface }}, 0.2);
+    border: none;
+    border-radius: 6px;
+    min-width: 6px;
+    min-height: 6px;
+}
+.nemo-window scrollbar slider:hover {
+    background-color: alpha({{ $primary }}, 0.45);
+}
+
+/* ---- Progress bar ---- */
+.nemo-window progressbar progress,
+.nemo-window progressbar trough {
+    border-radius: 2px;
+    border: none;
+}
+.nemo-window progressbar progress {
+    background-color: {{ $primary }};
+}
+
+/* ---- Sin sombras/glow excesivo en botones de titulo ---- */
+.nemo-window headerbar .titlebutton {
+    box-shadow: none;
+}

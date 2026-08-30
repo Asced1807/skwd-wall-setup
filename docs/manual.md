@@ -24,6 +24,9 @@ un selector de wallpapers y nada más.
 
 En resumen: **skwd es el selector, Caelestia sigue mandando en el theming.**
 
+Y si quieres que ese theming llegue también a Nemo y a kitty, mira
+[Colores que siguen al fondo](#colores-que-siguen-al-fondo).
+
 ---
 
 ## Poner el atajo a mano
@@ -137,6 +140,67 @@ soporta vídeo y Wallpaper Engine, pero come bastante más RAM (~180 MB).
 `"all"`: con `"image"` no se dispara nunca, porque skwd clasifica las imágenes
 internamente como `static`.
 
+## Colores que siguen al fondo
+
+`postProcessing` deja el fondo en manos de Caelestia, que calcula una paleta
+Material You y con ella repinta su barra y las apps GTK (escribiendo los
+`@define-color` de `~/.config/gtk-3.0/gtk.css` y `gtk-4.0/gtk.css`). Nemo y
+kitty se quedan fuera: Nemo porque su tema propio ignora esos colores, y kitty
+porque nadie le toca la configuración.
+
+`./install-theming.sh` cierra ese hueco:
+
+| Qué | Dónde | Para qué |
+|---|---|---|
+| `caelestia-to-nemo` | `~/.local/bin/` | El hook: lee la paleta y renderiza las plantillas. |
+| `nemo.css.template` | `~/.config/caelestia/` | CSS de Nemo con marcadores `{{ $color }}`. |
+| `kitty.conf.template` | `~/.config/caelestia/` | Tema de kitty, con los 16 colores ANSI. |
+| `theme.postHook` | `~/.config/caelestia/cli.json` | Le dice a Caelestia que ejecute el hook al terminar. |
+
+Al aplicar un fondo, Caelestia escribe la paleta en
+`~/.local/state/caelestia/scheme.json` y llama al hook, que:
+
+1. Sustituye `{{ $primary }}`, `{{ $surface }}`, `{{ $term4 }}`... por el color real.
+2. Escribe `nemo.css` en `~/.config/gtk-3.0` y `~/.config/gtk-4.0`, y comprueba
+   que `gtk.css` lo importe. Se comprueba **cada vez** a propósito: Caelestia
+   reescribe ese archivo en cada cambio y se llevaría el `@import` por delante.
+3. Escribe el tema de kitty y le manda `SIGUSR1` para que lo recargue en vivo.
+4. Da un toggle al icon-theme por `gsettings`, para que las apps GTK abiertas
+   recarguen los iconos.
+5. Relanza Nemo si estaba abierto: GTK no recarga el CSS de un proceso vivo.
+
+### Personalizar
+
+Edita las **plantillas**, nunca los archivos generados (`nemo.css` y
+`kitty-themes/01-Wallust.conf` se sobrescriben enteros en el siguiente cambio de
+fondo). Los nombres de color disponibles son las claves de `colours` en
+`scheme.json`:
+
+```bash
+python3 -c 'import json,pathlib; p=pathlib.Path.home()/".local/state/caelestia/scheme.json"; print(*json.loads(p.read_text())["colours"], sep="\n")'
+```
+
+Para ver el resultado sin cambiar de fondo, ejecuta el hook a mano:
+
+```bash
+~/.local/bin/caelestia-to-nemo
+```
+
+### Quitarlo
+
+```bash
+python3 - <<'PY'
+import json, pathlib
+p = pathlib.Path.home() / ".config/caelestia/cli.json"
+cfg = json.loads(p.read_text())
+cfg.get("theme", {}).pop("postHook", None)
+p.write_text(json.dumps(cfg, indent=4) + "\n")
+PY
+```
+
+Los `nemo.css` ya generados se quedan como estén; bórralos de
+`~/.config/gtk-3.0` y `~/.config/gtk-4.0` si quieres volver al tema de siempre.
+
 ## Problemas conocidos
 
 **El panel no abre y el daemon parece vivo.**
@@ -229,6 +293,39 @@ confunde a las barras (Waybar, Caelestia...). Por eso `features.music` va en
 `~/Pictures/wallpapers` no existirá. Tras cambiarla hace falta
 `systemctl --user restart skwd-daemon.service`: recargar la config **no**
 reescanea la carpeta.
+
+**Nemo se cierra y se vuelve a abrir al cambiar de fondo.**
+Es a propósito: GTK no recarga el CSS de una ventana ya abierta, así que el
+hook cierra Nemo y lo relanza. Si prefieres que no lo haga (y aplicar el color
+nuevo al abrirlo tú):
+
+```bash
+CAELESTIA_NEMO_NO_RELAUNCH=1 caelestia wallpaper -f /ruta/al/fondo
+```
+
+Para dejarlo permanente, esa variable tiene que estar en el entorno de la
+sesión (por ejemplo `env = CAELESTIA_NEMO_NO_RELAUNCH,1` en tu Hyprland).
+
+**El tema de kitty se llama `01-Wallust.conf`.**
+Nombre heredado de wallust, que ocupaba antes ese sitio. Lo importante es que
+`~/.config/kitty/kitty.conf` lo incluya — `install-theming.sh` lo añade si falta:
+
+```conf
+include kitty-themes/01-Wallust.conf
+```
+
+Si además tienes wallust activo, los dos escriben el mismo archivo y gana el
+último en ejecutarse. Quita la plantilla `kitty` de `~/.config/wallust/wallust.toml`
+o cambia el `KITTY_THEME_OUT` del hook.
+
+**Cambio de fondo y aparece un proceso de Brave que yo no he abierto.**
+No es el hook: es Caelestia, que al aplicar el tema lanza
+`brave --refresh-platform-policy --no-startup-window` y el proceso queda
+residente (~220 MB). Se apaga en `~/.config/caelestia/cli.json`:
+
+```json
+{ "theme": { "enableChromium": false } }
+```
 
 **Diagnóstico general:**
 

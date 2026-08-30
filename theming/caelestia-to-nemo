@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""Renderiza la plantilla nemo.css con la paleta actual de caelestia,
+asegura que gtk.css importe nemo.css, refresca iconos en vivo y relanza
+Nemo si esta abierto para que el nuevo CSS surta efecto. Pensado para
+correr como theme.postHook de caelestia."""
+
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+HOME = Path.home()
+SCHEME = HOME / ".local/state/caelestia/scheme.json"
+TEMPLATE = HOME / ".config/caelestia/nemo.css.template"
+GTK_DIRS = [HOME / ".config/gtk-3.0", HOME / ".config/gtk-4.0"]
+IMPORT_LINE = '@import "nemo.css";'
+
+KITTY_TEMPLATE = HOME / ".config/caelestia/kitty.conf.template"
+KITTY_THEME_OUT = HOME / ".config/kitty/kitty-themes/01-Wallust.conf"
+
+
+def render(template: str, colours: dict) -> str:
+    def sub(match: re.Match) -> str:
+        key = match.group(1)
+        val = colours.get(key)
+        return f"#{val}" if val else match.group(0)
+
+    return re.sub(r"\{\{\s*\$(\w+)\s*\}\}", sub, template)
+
+
+def ensure_import(gtk_css: Path) -> None:
+    if not gtk_css.exists():
+        return
+    text = gtk_css.read_text()
+    if IMPORT_LINE in text:
+        return
+    if not text.endswith("\n"):
+        text += "\n"
+    gtk_css.write_text(text + IMPORT_LINE + "\n")
+
+
+def refresh_icons() -> None:
+    """Toggle del icon-theme para forzar a apps GTK abiertas a recargar iconos."""
+    try:
+        result = subprocess.run(
+            ["gsettings", "get", "org.gnome.desktop.interface", "icon-theme"],
+            capture_output=True, text=True, check=True,
+        )
+        current = result.stdout.strip().strip("'\"")
+        if not current:
+            return
+        subprocess.run(
+            ["gsettings", "set", "org.gnome.desktop.interface", "icon-theme", "Adwaita"],
+            check=False,
+        )
+        time.sleep(0.15)
+        subprocess.run(
+            ["gsettings", "set", "org.gnome.desktop.interface", "icon-theme", current],
+            check=False,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+
+
+def render_kitty(colours: dict) -> None:
+    if not KITTY_TEMPLATE.exists():
+        return
+    rendered = render(KITTY_TEMPLATE.read_text(), colours)
+    KITTY_THEME_OUT.parent.mkdir(parents=True, exist_ok=True)
+    KITTY_THEME_OUT.write_text(rendered)
+    subprocess.run(["pkill", "-USR1", "kitty"], check=False)
+
+
+def relaunch_nemo() -> None:
+    """Si Nemo esta corriendo, lo cierra y lo vuelve a abrir para tomar el nuevo CSS."""
+    if os.environ.get("CAELESTIA_NEMO_NO_RELAUNCH"):
+        return
+    running = subprocess.run(["pgrep", "-x", "nemo"], capture_output=True).returncode == 0
+    if not running:
+        return
+    subprocess.run(["nemo", "--quit"], check=False)
+    time.sleep(0.5)
+    subprocess.Popen(
+        ["nemo"],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+
+def main() -> None:
+    data = json.loads(SCHEME.read_text())
+    colours = data["colours"]
+    template = TEMPLATE.read_text()
+    rendered = render(template, colours)
+
+    for d in GTK_DIRS:
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "nemo.css").write_text(rendered)
+        ensure_import(d / "gtk.css")
+
+    print(f"nemo.css regenerado para scheme '{data.get('name')}' ({data.get('mode')})")
+
+    render_kitty(colours)
+    refresh_icons()
+    relaunch_nemo()
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        print(f"caelestia-to-nemo error: {e}", file=sys.stderr)
+        sys.exit(1)
