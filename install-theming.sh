@@ -290,12 +290,27 @@ fi
 # ------------------------------------------------------ 7. Comprobacion
 # Nada de "listo" a ciegas: se comprueba una por una cada pieza.
 fallos=0
+avisos=0
+
+# check: piezas que instala este script. Si fallan, es un fallo de verdad.
 check() {
   if eval "$2" >/dev/null 2>&1; then
-    printf '    \033[1;32m[ok]\033[0m   %s\n' "$1"
+    printf '    \033[1;32m[ok]\033[0m    %s\n' "$1"
   else
     printf '    \033[1;31m[FALLA]\033[0m %s\n' "$1"
     fallos=$((fallos + 1))
+  fi
+}
+
+# aviso: cosas que dependen de que Caelestia ya haya pintado alguna vez.
+# En una instalacion recien hecha es normal que aun no esten.
+aviso() {
+  if eval "$2" >/dev/null 2>&1; then
+    printf '    \033[1;32m[ok]\033[0m    %s\n' "$1"
+  else
+    printf '    \033[1;33m[aviso]\033[0m %s\n' "$1"
+    printf '             %s\n' "$3"
+    avisos=$((avisos + 1))
   fi
 }
 
@@ -306,18 +321,23 @@ echo "------------------------------------------------------------------"
 check "hook ejecutable en ~/.local/bin"      "[ -x '$HOOK' ]"
 check "plantilla de Nemo"                    "[ -f '$CAE_DIR/nemo.css.template' ]"
 check "plantilla de kitty"                   "[ -f '$CAE_DIR/kitty.conf.template' ]"
-check "esquema dinamico activo"               "[ \"\$('$CAELESTIA_BIN' scheme get -n 2>/dev/null)\" = dynamic ]"
+aviso "esquema dinamico activo"               "[ \"\$('$CAELESTIA_BIN' scheme get -n 2>/dev/null)\" = dynamic ]" \
+      "sin esto los colores no salen del fondo:  caelestia scheme set -n dynamic"
 check "cli.json es JSON valido"              "python3 -c \"import json;json.load(open('$CLI_JSON'))\""
 check "postHook apunta al hook"              "python3 -c \"import json,sys;sys.exit(0 if json.load(open('$CLI_JSON')).get('theme',{}).get('postHook')=='$HOOK' else 1)\""
 [ "$USAR_KITTY" = "si" ] && check "kitty.conf incluye el tema" "grep -q '$KITTY_INCLUDE' '$KITTY_CONF'"
 
 if [ -f "$SCHEME" ]; then
   check "nemo.css generado (gtk-3.0)"        "[ -s '$CONFIG_HOME/gtk-3.0/nemo.css' ]"
-  check "gtk.css lo importa"                 "grep -q 'nemo.css' '$CONFIG_HOME/gtk-3.0/gtk.css'"
+  aviso "gtk.css lo importa"                 "grep -q 'nemo.css' '$CONFIG_HOME/gtk-3.0/gtk.css'" \
+        "lo escribe Caelestia al aplicar un tema; aplica un fondo y se arregla solo"
 fi
 
 echo "------------------------------------------------------------------"
-if [ "$fallos" -eq 0 ]; then
+if [ "$fallos" -eq 0 ] && [ "$avisos" -gt 0 ]; then
+  c_warn "Instalado correctamente, con $avisos aviso(s) arriba: se resuelven"
+  c_warn "solos en cuanto apliques un fondo con Caelestia."
+elif [ "$fallos" -eq 0 ]; then
   if [ -f "$SCHEME" ]; then
     c_ok "Todo en orden. Cambia de fondo y Nemo y kitty cambiaran con el."
   else
